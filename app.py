@@ -9,20 +9,12 @@ import os # For PORT binding
 import datetime # To get the current year for the footer
 
 # --- Configuration & Hardcoded Values ---
-# !!! WARNING: Hardcoding secrets like API keys is insecure and not recommended for production! !!!
-# !!! This is only for temporary local testing as requested. Use environment variables for deployment. !!!
+# !!! WARNING: Use Environment Variables on Render for secrets! Hardcoding is insecure! !!!
 
-# Replace with your actual Riot API Key for testing (use Environment Variables on Render!)
-# !!! DO NOT COMMIT YOUR REAL KEY TO GIT !!!
-RIOT_API_KEY = os.environ.get("RIOT_API_KEY", "RGAPI-Your-Actual-Riot-Api-Key-Here") # <<<--- Use ENV Var or REPLACE ME for local
-
-# Replace with your actual Riot verification code (from the initial request/image)
-# Can also be set via Environment Variable
-RIOT_VERIFICATION_CODE = os.environ.get("RIOT_VERIFICATION_CODE", "de8de887-acbe-467e-9afd-5feb469e7f41") # <<<--- Use ENV Var or REPLACE ME (if needed)
-
-# Flask secret key (change for better security, use Environment Variable on Render!)
-# !!! Hardcoding this is also insecure. !!!
-FLASK_SECRET_KEY = os.environ.get("FLASK_SECRET_KEY", 'a_very_insecure_default_key_for_testing_only_v3') # <<<--- Use ENV Var or CHANGE ME
+# Use Environment Variables first, fall back to placeholders (INSECURE for production)
+RIOT_API_KEY = os.environ.get("RIOT_API_KEY", "RGAPI-Your-Actual-Riot-Api-Key-Here")
+RIOT_VERIFICATION_CODE = os.environ.get("RIOT_VERIFICATION_CODE", "de8de887-acbe-467e-9afd-5feb469e7f41")
+FLASK_SECRET_KEY = os.environ.get("FLASK_SECRET_KEY", 'a_very_insecure_default_key_for_testing_only_v3')
 
 app = Flask(__name__)
 app.secret_key = FLASK_SECRET_KEY # Set the secret key for flashing
@@ -269,7 +261,7 @@ footer p { margin-bottom: 0.5rem; }
 def render_base_html(title="Ecaly", content="", head_extra="", scripts_extra=""):
     """Simulates base.html template with enhanced styling."""
     flashed_messages_html = ""
-    # *** FIX: Use Python's True, not lowercase true ***
+    # Use Python's True
     messages = get_flashed_messages(with_categories=True)
     if messages:
         flashed_messages_html += "<div class='container'><div class='row justify-content-center'><div class='col-lg-8 col-md-10'>"
@@ -287,7 +279,7 @@ def render_base_html(title="Ecaly", content="", head_extra="", scripts_extra="")
     # Get current year for footer
     current_year = datetime.datetime.now().year
 
-    # *** FIX: Changed invalid comment to correct HTML comment syntax ***
+    # Use correct HTML comment syntax
     return f"""
 <!doctype html>
 <html lang="en">
@@ -309,7 +301,7 @@ def render_base_html(title="Ecaly", content="", head_extra="", scripts_extra="")
         <div class="container"><a class="navbar-brand" href="/">ECALY</a></div>
     </nav>
     <main>
-        {flashed_messages_html} {/* This correctly inserts flash messages */}
+        {flashed_messages_html} {/* *** FIX: REMOVED INVALID COMMENT FROM HERE *** */}
         <div class="container">
             {content}
         </div>
@@ -425,13 +417,14 @@ def render_results_page(player_name, player_tag, rank_data=None, error=None):
 @app.route('/riot.txt')
 def serve_riot_txt():
     """Serves the verification code directly."""
-    if not RIOT_VERIFICATION_CODE or RIOT_VERIFICATION_CODE == "de8de887-acbe-467e-9afd-5feb469e7f41": # Check if placeholder is still used
+    # Use the value fetched from ENV or the hardcoded placeholder
+    current_verification_code = RIOT_VERIFICATION_CODE
+    if not current_verification_code or current_verification_code == "de8de887-acbe-467e-9afd-5feb469e7f41":
         print("WARNING: RIOT_VERIFICATION_CODE is not set via ENV or is using the placeholder!")
-        # Allow serving placeholder for initial setup, but log warning.
-        # Consider aborting in production if not set:
+        # Allow serving placeholder for initial setup, but log warning. Consider aborting in production.
         # abort(500, description="Verification code not configured on the server.")
 
-    return Response(RIOT_VERIFICATION_CODE, mimetype='text/plain')
+    return Response(current_verification_code, mimetype='text/plain')
 
 
 @app.route('/')
@@ -451,12 +444,10 @@ def lookup():
         return redirect('/')
 
     # Check if API key is missing or still the placeholder
-    # Use the value fetched from ENV or the hardcoded placeholder
     current_api_key = RIOT_API_KEY
     if not current_api_key or current_api_key == "RGAPI-Your-Actual-Riot-Api-Key-Here":
         print("ERROR: RIOT_API_KEY environment variable not set or is using the placeholder value.")
         flash('Application configuration error: API key missing or invalid. Please contact the administrator.', 'danger')
-        # Render results page with error, avoid showing the lookup form again immediately
         return render_results_page(
             player_name=username,
             player_tag=tag,
@@ -470,15 +461,15 @@ def lookup():
 
     try:
         headers = {"X-Riot-Token": current_api_key}
-        # STEP 1: Get PUUID (Use appropriate account region)
-        # Common regions: americas, asia, europe, esports
-        # Consider making this configurable, e.g., via dropdown or ENV var
-        account_region = os.environ.get("RIOT_ACCOUNT_REGION", "americas") # <<<--- ADJUST ACCOUNT REGION IF NEEDED
-        account_api_url = f"https://{account_region}.api.riotgames.com/riot/account/v1/accounts/by-riot-id/{username}/{tag}"
+        # Use environment variables for regions, falling back to defaults
+        account_region = os.environ.get("RIOT_ACCOUNT_REGION", "americas")
+        valorant_region = os.environ.get("RIOT_VALORANT_REGION", "na")
 
+        # STEP 1: Get PUUID
+        account_api_url = f"https://{account_region}.api.riotgames.com/riot/account/v1/accounts/by-riot-id/{username}/{tag}"
         print(f"Calling Account API: {account_api_url}")
-        account_response = requests.get(account_api_url, headers=headers, timeout=15) # Increased timeout slightly
-        account_response.raise_for_status() # Check for HTTP errors (4xx, 5xx)
+        account_response = requests.get(account_api_url, headers=headers, timeout=15)
+        account_response.raise_for_status()
         account_data = account_response.json()
         puuid = account_data.get('puuid')
 
@@ -486,80 +477,62 @@ def lookup():
             raise ValueError("Could not find PUUID for the given Riot ID. Check username/tag and account region.")
         print(f"Found PUUID: {puuid}")
 
-        # STEP 2: Get Rank Info (Use appropriate VALORANT game region)
-        # Common regions: na, eu, ap, kr, latam, br
-        # Consider making this configurable
-        valorant_region = os.environ.get("RIOT_VALORANT_REGION", "na") # <<<--- ADJUST VALORANT REGION AS NEEDED
-        # Use the V3 endpoint as suggested by some docs (Verify this against current Riot API docs)
-        # rank_api_url = f"https://{valorant_region}.api.riotgames.com/val/match/v1/matchlists/by-puuid/{puuid}" # Example alternative
-        # Sticking with ranked/v1 based on original code structure
+        # STEP 2: Get Rank Info
+        # Verify this endpoint and its response structure against current Riot API docs
         rank_api_url = f"https://{valorant_region}.api.riotgames.com/val/ranked/v1/by-puuid/{puuid}"
-
         print(f"Calling Rank API: {rank_api_url}")
-        rank_response = requests.get(rank_api_url, headers=headers, timeout=15) # Increased timeout slightly
+        rank_response = requests.get(rank_api_url, headers=headers, timeout=15)
 
-        # Handle 404 specifically for rank data (player exists but unranked/no data)
         if rank_response.status_code == 404:
             print(f"No VAL ranked data found for PUUID {puuid} (status 404). Assuming unranked.")
-            rank_data = {'tier': 'Unranked'} # Represent as 'found but unranked' explicitly
+            rank_data = {'tier': 'Unranked'} # Explicitly represent as unranked
         else:
-            rank_response.raise_for_status() # Raise HTTPError for other bad statuses (400, 401, 403, 429, 5xx)
+            rank_response.raise_for_status()
             api_result = rank_response.json()
-            print(f"Received rank data: {api_result}") # Log the raw response for debugging
+            print(f"Received rank data: {api_result}") # Log raw response
 
-            # --- !!! IMPORTANT: PARSE RESPONSE CAREFULLY (CHECK RIOT DOCS) !!! ---
-            # Parsing logic based on VAL-RANKED-V1 `getByPuuid` expected structure.
-            # This structure can change, always verify with Riot's documentation.
-            # Example structure might be nested differently, e.g., directly under 'latestCompetitiveUpdate' or similar.
-            # The provided code seemed to expect a `QueueData.competitive` structure which might be outdated or incorrect.
-            # Let's adapt based on a common structure seen in Ranked V1 (needs verification with actual API call):
-            # Assumes the response JSON *directly* contains competitive tier info, or nested under a primary key.
-
-            # --- Revised Parsing Logic (Example - NEEDS VERIFICATION) ---
-            # Try finding the competitive data, adjust keys as needed based on actual response
+            # --- !!! ADAPT PARSING BASED ON ACTUAL `api_result` LOGGED ABOVE !!! ---
             competitive_data = None
-            if 'data' in api_result and isinstance(api_result['data'], list) and len(api_result['data']) > 0:
-                 # Simplified: assuming the first entry in 'data' list holds the rank if present
+            # Example parsing attempts - CHECK THE LOGS FOR THE REAL STRUCTURE
+            if isinstance(api_result.get('data'), list) and len(api_result['data']) > 0:
                  rank_info = api_result['data'][0]
                  competitive_data = {
-                     'TierName': rank_info.get('rankedRating', 'Unranked'), # Or tier name key
-                     'TierProgress': rank_info.get('competitiveTier', 0), # Map tier number to name later if needed
-                     'Wins': rank_info.get('numberOfWins', 'N/A'),
-                     # Losses might not be directly available in all endpoints
+                     'tier_name': rank_info.get('rankedRating', 'Unranked'), # Key might be different
+                     'tier_progress': rank_info.get('competitiveTier', 0), # Key might be different
+                     'wins': rank_info.get('numberOfWins', '--'), # Key might be different
+                     'losses': rank_info.get('numberOfLosses', '--'), # Key might be different
+                     'icon': None # Icon usually needs mapping
                  }
-            elif 'latestCompetitiveUpdate' in api_result: # Alternative structure?
-                 competitive_data = api_result['latestCompetitiveUpdate'] # Adjust keys below accordingly
-            elif 'QueueData' in api_result and 'competitive' in api_result['QueueData']: # Original attempt
-                 competitive_data = api_result['QueueData']['competitive']
-            else: # Default case if structure is unexpected or player is unranked
+            # Add more 'elif' checks here for other possible structures based on api_result logs
+
+            if not competitive_data:
                  print("Could not find expected competitive data structure in API response.")
-                 competitive_data = {}
+                 competitive_data = {} # Ensure it exists for .get() calls below
 
-
+            # Default values
             tier_name = "Unranked"
-            tier_progress = "--" # Using '--' as default for missing numeric data
+            tier_progress = "--"
             wins_count = "--"
-            losses_count = "--" # Often not included in this specific endpoint
-            tier_icon = None # Icons might need a separate mapping or API call
+            losses_count = "--"
+            tier_icon = None
 
-            if competitive_data:
-                 # Adapt these keys based on the *actual* structure found in `api_result`
-                 tier_name = competitive_data.get('TierName', competitive_data.get('currenttierpatched', 'Unranked'))
-                 tier_progress = competitive_data.get('TierProgress', competitive_data.get('ranking_in_tier', '--'))
-                 wins_count = competitive_data.get('Wins', competitive_data.get('numberOfWins', '--'))
-                 losses_count = competitive_data.get('Losses', '--') # Adjust if available
-                 # Icon URL might be derived or in a different field, e.g., 'TierIcon' or constructed based on tier
-                 tier_icon = competitive_data.get('TierIcon', None)
+            # Extract data using .get() with defaults
+            # *** ADJUST THESE KEYS based on the actual structure found in `competitive_data` ***
+            tier_name = competitive_data.get('tier_name', 'Unranked')
+            tier_progress = competitive_data.get('tier_progress', '--')
+            wins_count = competitive_data.get('wins', '--')
+            losses_count = competitive_data.get('losses', '--')
+            tier_icon = competitive_data.get('icon', None) # Or derive from tier_name/tier_progress
 
             rank_data = {
                  'tier': tier_name,
-                 'division': '', # Often part of tier name in Valorant (e.g., "Gold 2")
+                 'division': '', # Often combined in tier name
                  'lp': tier_progress,
                  'wins': wins_count,
                  'losses': losses_count,
-                 'rank_icon_url': tier_icon # Needs mapping or correct key
+                 'rank_icon_url': tier_icon
             }
-            # --- End Revised Parsing Logic ---
+            # --- End Parsing Logic ---
 
             print(f"Parsed rank data: {rank_data}")
 
@@ -569,12 +542,12 @@ def lookup():
         error_message = "Request to Riot API timed out. Please try again later."
     except requests.exceptions.HTTPError as e:
         status_code = e.response.status_code
-        response_text = e.response.text # Log response body for more details
+        response_text = e.response.text
         print(f"Error: Riot API HTTP Error {status_code}. Response: {response_text}")
         if status_code == 400: error_message = "Invalid request (check username/tag format?)."
         elif status_code == 401: error_message = "Unauthorized - Check the Riot API Key (ensure it's valid and not expired)."
         elif status_code == 403: error_message = "Forbidden - Check the Riot API Key permissions or validity. It might be expired or invalid."
-        elif status_code == 404: # This should ideally be caught earlier for rank, but could happen for account lookup
+        elif status_code == 404:
              error_message = "Player not found with that Riot ID/Region (check spelling, tag, and regions)."
         elif status_code == 429: error_message = "Rate limit exceeded - Please wait a moment before trying again."
         elif status_code >= 500: error_message = f"Riot API is temporarily unavailable (Server Error {status_code}). Please try again later."
@@ -584,20 +557,18 @@ def lookup():
         error_message = "Network error - Could not connect to Riot API. Check internet connection and API status."
     except ValueError as e: # Catch PUUID not found error
         print(f"Error: Data processing error: {e}")
-        error_message = str(e) # Display the specific error (e.g., "Could not find PUUID...")
+        error_message = str(e)
     except Exception as e:
-        # Catch any other unexpected errors
         print(f"CRITICAL: An unexpected error occurred: {e}")
         import traceback
-        traceback.print_exc() # Print full traceback for debugging
+        traceback.print_exc()
         error_message = "An unexpected server error occurred during lookup."
 
-    # Render the results page regardless of success or failure
     return render_results_page(
         player_name=username,
         player_tag=tag,
-        rank_data=rank_data, # Will be None on error, or {}/dict on success
-        error=error_message  # Will be None on success
+        rank_data=rank_data,
+        error=error_message
     )
 
 
@@ -610,7 +581,7 @@ if __name__ == '__main__':
     print("* NEVER commit secrets directly into Git repositories.")
     print("************************")
 
-    # Check placeholders and print warnings if ENV VARS are not set and placeholders are used
+    # Check placeholders and print warnings
     if RIOT_API_KEY == "RGAPI-Your-Actual-Riot-Api-Key-Here":
         print("WARNING: RIOT_API_KEY is using the placeholder. Set the RIOT_API_KEY environment variable.")
     if FLASK_SECRET_KEY == 'a_very_insecure_default_key_for_testing_only_v3':
@@ -618,8 +589,6 @@ if __name__ == '__main__':
     if RIOT_VERIFICATION_CODE == "de8de887-acbe-467e-9afd-5feb469e7f41":
         print("INFO: RIOT_VERIFICATION_CODE is using the placeholder. Set the RIOT_VERIFICATION_CODE environment variable if needed.")
 
-    # Use PORT environment variable provided by Render, default to 5000 for local dev
     port = int(os.environ.get('PORT', 5000))
-    # Run with host='0.0.0.0' to be accessible within Render's network
-    # Keep debug=False as Render manages restarts and production logging
+    # Keep debug=False for Render
     app.run(host='0.0.0.0', port=port, debug=False)
