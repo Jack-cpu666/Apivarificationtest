@@ -5,8 +5,8 @@ from flask import (
     Flask, request, abort, flash, redirect, get_flashed_messages, Response
 )
 import html  # For escaping user input in HTML
-import os # For PORT binding
-import datetime # To get the current year for the footer
+import os  # For PORT binding
+import datetime  # To get the current year for the footer
 
 # --- Configuration & Hardcoded Values ---
 # !!! WARNING: Use Environment Variables on Render for secrets! Hardcoding is insecure! !!!
@@ -17,7 +17,7 @@ RIOT_VERIFICATION_CODE = os.environ.get("RIOT_VERIFICATION_CODE", "de8de887-acbe
 FLASK_SECRET_KEY = os.environ.get("FLASK_SECRET_KEY", 'a_very_insecure_default_key_for_testing_only_v3')
 
 app = Flask(__name__)
-app.secret_key = FLASK_SECRET_KEY # Set the secret key for flashing
+app.secret_key = FLASK_SECRET_KEY  # Set the secret key for flashing
 
 # --- Embedded CSS (Enhanced Dark Theme Design) ---
 # (CSS remains the same as provided - no changes needed here)
@@ -240,7 +240,7 @@ main {
 .alert-info { background-color: rgba(23, 162, 184, 0.2); color: #d1ecf1; border-left: 4px solid #17a2b8; }
 
 .btn-close {
-    filter: invert(0.8) grayscale(100%) brightness(150%); /* Adjust visibility */
+    filter: invert(0.8) grayscale(100%) brightness(150%); /* Adjust RIGHTS visibility */
 }
 
 /* Footer Styling */
@@ -301,15 +301,15 @@ def render_base_html(title="Ecaly", content="", head_extra="", scripts_extra="")
         <div class="container"><a class="navbar-brand" href="/">ECALY</a></div>
     </nav>
     <main>
-        {flashed_messages_html} {/* *** FIX: REMOVED INVALID COMMENT FROM HERE *** */}
+        {flashed_messages_html}
         <div class="container">
             {content}
         </div>
     </main>
     <footer>
-        <p>&copy; {current_year} Ecaly - Rank data provided by Riot Games API.</p>
+        <p>© {current_year} Ecaly - Rank data provided by Riot Games API.</p>
         <p class="small">This is a test application. Use responsibly.</p>
-        </footer>
+    </footer>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
     {scripts_extra}
 </body>
@@ -359,16 +359,16 @@ def render_results_page(player_name, player_tag, rank_data=None, error=None):
 """
     if safe_error:
         results_content += f'<div class="alert alert-danger" role="alert"><strong>Lookup Failed:</strong> {safe_error}</div>'
-    elif rank_data is not None: # Check if rank_data is not None (covers {} case too)
+    elif rank_data is not None:  # Check if rank_data is not None (covers {} case too)
         # --- Enhanced Rank Display ---
-        tier = html.escape(rank_data.get('tier', 'Unranked')) # Default to Unranked
+        tier = html.escape(rank_data.get('tier', 'Unranked'))  # Default to Unranked
         division = html.escape(rank_data.get('division', ''))
         lp = html.escape(str(rank_data.get('lp', '--')))
         wins = html.escape(str(rank_data.get('wins', '--')))
         losses = html.escape(str(rank_data.get('losses', '--')))
         icon_url = rank_data.get('rank_icon_url')
 
-        results_content += '<div class="rank-display">' # Flex container
+        results_content += '<div class="rank-display">'  # Flex container
 
         # Icon
         results_content += '<div class="rank-icon">'
@@ -395,11 +395,11 @@ def render_results_page(player_name, player_tag, rank_data=None, error=None):
             results_content += f'<div>Losses: <strong>{losses}</strong></div>'
             results_content += '</div>'
 
-        results_content += '</div>' # End rank-display
+        results_content += '</div>'  # End rank-display
 
         # Add message for unranked case (where rank_data might be {})
         if not rank_data.get('tier') or rank_data.get('tier') == 'Unranked':
-             if not safe_error: # Avoid double messaging if there was also an error somehow
+             if not safe_error:  # Avoid double messaging if there was also an error somehow
                   results_content += '<div class="alert alert-info mt-4" role="alert">Player found, but appears unranked in competitive modes.</div>'
         # -----------------------------
 
@@ -407,10 +407,9 @@ def render_results_page(player_name, player_tag, rank_data=None, error=None):
 
     # Add "Lookup Another" button below results/error/info
     results_content += '<div class="text-center mt-5"><a href="/" class="btn btn-secondary">LOOKUP ANOTHER</a></div>'
-    results_content += '</div></div></div>' # End card, col, row
+    results_content += '</div></div></div>'  # End card, col, row
 
     return render_base_html(title=f"Rank Results - Ecaly", content=results_content)
-
 
 # --- Flask Routes ---
 
@@ -426,12 +425,10 @@ def serve_riot_txt():
 
     return Response(current_verification_code, mimetype='text/plain')
 
-
 @app.route('/')
 def index():
     """Renders the homepage."""
     return render_index_page()
-
 
 @app.route('/lookup', methods=['POST'])
 def lookup():
@@ -485,11 +482,11 @@ def lookup():
 
         if rank_response.status_code == 404:
             print(f"No VAL ranked data found for PUUID {puuid} (status 404). Assuming unranked.")
-            rank_data = {'tier': 'Unranked'} # Explicitly represent as unranked
+            rank_data = {'tier': 'Unranked'}  # Explicitly represent as unranked
         else:
             rank_response.raise_for_status()
             api_result = rank_response.json()
-            print(f"Received rank data: {api_result}") # Log raw response
+            print(f"Received rank data: {api_result}")  # Log raw response
 
             # --- !!! ADAPT PARSING BASED ON ACTUAL `api_result` LOGGED ABOVE !!! ---
             competitive_data = None
@@ -497,17 +494,17 @@ def lookup():
             if isinstance(api_result.get('data'), list) and len(api_result['data']) > 0:
                  rank_info = api_result['data'][0]
                  competitive_data = {
-                     'tier_name': rank_info.get('rankedRating', 'Unranked'), # Key might be different
-                     'tier_progress': rank_info.get('competitiveTier', 0), # Key might be different
-                     'wins': rank_info.get('numberOfWins', '--'), # Key might be different
-                     'losses': rank_info.get('numberOfLosses', '--'), # Key might be different
-                     'icon': None # Icon usually needs mapping
+                     'tier_name': rank_info.get('rankedRating', 'Unranked'),  # Key might be different
+                     'tier_progress': rank_info.get('competitiveTier', 0),  # Key might be different
+                     'wins': rank_info.get('numberOfWins', '--'),  # Key might be different
+                     'losses': rank_info.get('numberOfLosses', '--'),  # Key might be different
+                     'icon': None  # Icon usually needs mapping
                  }
             # Add more 'elif' checks here for other possible structures based on api_result logs
 
             if not competitive_data:
                  print("Could not find expected competitive data structure in API response.")
-                 competitive_data = {} # Ensure it exists for .get() calls below
+                 competitive_data = {}  # Ensure it exists for .get() calls below
 
             # Default values
             tier_name = "Unranked"
@@ -522,11 +519,11 @@ def lookup():
             tier_progress = competitive_data.get('tier_progress', '--')
             wins_count = competitive_data.get('wins', '--')
             losses_count = competitive_data.get('losses', '--')
-            tier_icon = competitive_data.get('icon', None) # Or derive from tier_name/tier_progress
+            tier_icon = competitive_data.get('icon', None)  # Or derive from tier_name/tier_progress
 
             rank_data = {
                  'tier': tier_name,
-                 'division': '', # Often combined in tier name
+                 'division': '',  # Often combined in tier name
                  'lp': tier_progress,
                  'wins': wins_count,
                  'losses': losses_count,
@@ -535,7 +532,6 @@ def lookup():
             # --- End Parsing Logic ---
 
             print(f"Parsed rank data: {rank_data}")
-
 
     except requests.exceptions.Timeout:
         print("Error: Request to Riot API timed out.")
@@ -555,7 +551,7 @@ def lookup():
     except requests.exceptions.RequestException as e:
         print(f"Error: Network error: {e}")
         error_message = "Network error - Could not connect to Riot API. Check internet connection and API status."
-    except ValueError as e: # Catch PUUID not found error
+    except ValueError as e:  # Catch PUUID not found error
         print(f"Error: Data processing error: {e}")
         error_message = str(e)
     except Exception as e:
@@ -570,7 +566,6 @@ def lookup():
         rank_data=rank_data,
         error=error_message
     )
-
 
 # --- Run App Locally (Gunicorn runs it on Render/Production) ---
 if __name__ == '__main__':
