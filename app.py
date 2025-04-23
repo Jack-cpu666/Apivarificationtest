@@ -321,7 +321,7 @@ def render_index_page():
     index_content = """
 <div class="row justify-content-center">
     <div class="col-lg-6 col-md-8">
-        <div class="styled-card"> {/* Use new card class */}
+        <div class="styled-card">
             <h2 class="card-title text-center">Valorant Rank Lookup</h2>
             <p class="text-center text-muted mb-4">Enter a player's Riot ID below.</p>
             <form action="/lookup" method="post">
@@ -329,7 +329,7 @@ def render_index_page():
                     <label for="username" class="form-label">Username</label>
                     <input type="text" class="form-control" id="username" name="username" placeholder="PlayerName" required>
                 </div>
-                <div class="input-group mb-4"> {/* More space below input group */}
+                <div class="input-group mb-4">
                      <span class="input-group-text">#</span>
                      <input type="text" class="form-control" id="tag" name="tag" placeholder="TAG" required>
                 </div>
@@ -341,6 +341,9 @@ def render_index_page():
     </div>
 </div>
 """
+    return render_base_html(title="Ecaly - Valorant Rank Lookup", content=index_content)
+    return render_base_html(title="Ecaly - Valorant Rank Lookup", content=index_content)
+    return render_base_html(title="Ecaly - Valorant Rank Lookup", content=index_content)
     return render_base_html(title="Ecaly - Valorant Rank Lookup", content=index_content)
 
 def render_results_page(player_name, player_tag, rank_data=None, error=None):
