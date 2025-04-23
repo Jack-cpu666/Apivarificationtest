@@ -268,7 +268,6 @@ def render_base_html(title="Ecaly", content="", head_extra="", scripts_extra="")
     flashed_messages_html = ""
     messages = get_flashed_messages(with_categories=true)
     if messages:
-        # Wrap messages in container and row/col for proper alignment
         flashed_messages_html += "<div class='container'><div class='row justify-content-center'><div class='col-lg-8 col-md-10'>"
         for category, message in messages:
             safe_message = html.escape(message)
@@ -281,6 +280,7 @@ def render_base_html(title="Ecaly", content="", head_extra="", scripts_extra="")
             '''
         flashed_messages_html += "</div></div></div>"
 
+    # *** THE FIX IS HERE: Removed the invalid comment from the f-string below ***
     return f"""
 <!doctype html>
 <html lang="en">
@@ -289,12 +289,15 @@ def render_base_html(title="Ecaly", content="", head_extra="", scripts_extra="")
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{html.escape(title)}</title>
     {head_extra}
+    {/* --- External CSS --- */}
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap-reboot.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap-grid.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap-utilities.min.css" rel="stylesheet">
+    {/* --- Google Fonts --- */}
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    {/* --- Embedded Custom CSS --- */}
     <style>{CUSTOM_CSS}</style>
 </head>
 <body>
@@ -302,8 +305,8 @@ def render_base_html(title="Ecaly", content="", head_extra="", scripts_extra="")
         <div class="container"><a class="navbar-brand" href="/">ECALY</a></div>
     </nav>
     <main>
-        {flashed_messages_html} {/* Display flash messages here */}
-        <div class="container"> {/* Wrap main content */}
+        {flashed_messages_html} {/* This correctly inserts flash messages */}
+        <div class="container">
             {content}
         </div>
     </main>
@@ -312,6 +315,7 @@ def render_base_html(title="Ecaly", content="", head_extra="", scripts_extra="")
         <p class="small">This is a test application. Use responsibly.</p>
         {/* Verification route /riot.txt is active but intentionally not linked */}
     </footer>
+    {/* --- JavaScript --- */}
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
     {scripts_extra}
 </body>
@@ -361,11 +365,11 @@ def render_results_page(player_name, player_tag, rank_data=None, error=None):
 """
     if safe_error:
         results_content += f'<div class="alert alert-danger" role="alert"><strong>Lookup Failed:</strong> {safe_error}</div>'
-    elif rank_data:
+    elif rank_data is not None: # Check if rank_data is not None (covers {} case too)
         # --- Enhanced Rank Display ---
-        tier = html.escape(rank_data.get('tier', 'Unranked'))
-        division = html.escape(rank_data.get('division', '')) # Often empty, handle display
-        lp = html.escape(str(rank_data.get('lp', '--'))) # Use '--' for missing data
+        tier = html.escape(rank_data.get('tier', 'Unranked')) # Default to Unranked
+        division = html.escape(rank_data.get('division', ''))
+        lp = html.escape(str(rank_data.get('lp', '--')))
         wins = html.escape(str(rank_data.get('wins', '--')))
         losses = html.escape(str(rank_data.get('losses', '--')))
         icon_url = rank_data.get('rank_icon_url')
@@ -377,27 +381,35 @@ def render_results_page(player_name, player_tag, rank_data=None, error=None):
         if icon_url and isinstance(icon_url, str) and icon_url.startswith(('http://', 'https://')):
              results_content += f'<img src="{html.escape(icon_url)}" alt="{tier} Icon">'
         else:
+             # Placeholder if no icon or if rank_data was {} (unranked)
              results_content += '<div style="display:flex; align-items:center; justify-content:center; color: var(--text-muted); font-size: 0.8em;">No Icon</div>'
         results_content += '</div>'
 
         # Tier & LP
         results_content += '<div class="rank-details text-center">'
-        tier_display = f"{tier} {division}".strip() # Combine tier and division, remove trailing space if division is empty
+        tier_display = f"{tier} {division}".strip()
         results_content += f'<h3 class="rank-tier">{tier_display}</h3>'
-        results_content += f'<p><strong>LP:</strong> {lp}</p>'
+        # Only show LP/Wins/Losses if they are meaningful (not '--')
+        if lp != '--':
+             results_content += f'<p><strong>LP:</strong> {lp}</p>'
         results_content += '</div>'
 
-        # Stats Row
-        results_content += '<div class="stats-row">'
-        results_content += f'<div>Wins: <strong>{wins}</strong></div>'
-        results_content += f'<div>Losses: <strong>{losses}</strong></div>'
-        results_content += '</div>'
+        # Stats Row (only show if wins/losses are meaningful)
+        if wins != '--' or losses != '--':
+            results_content += '<div class="stats-row">'
+            results_content += f'<div>Wins: <strong>{wins}</strong></div>'
+            results_content += f'<div>Losses: <strong>{losses}</strong></div>'
+            results_content += '</div>'
 
         results_content += '</div>' # End rank-display
+
+        # Add message for unranked case (where rank_data might be {})
+        if not rank_data.get('tier') or rank_data.get('tier') == 'Unranked':
+             if not safe_error: # Avoid double messaging if there was also an error somehow
+                 results_content += '<div class="alert alert-info mt-4" role="alert">Player found, but appears unranked in competitive modes.</div>'
         # -----------------------------
 
-    else: # Case where rank_data is empty dict {} (e.g., unranked player found)
-        results_content += '<div class="alert alert-info" role="alert">Player found, but no specific rank data is available (likely unranked in competitive modes).</div>'
+    # Fallback/Error case already handled by the first 'if safe_error:' check
 
     # Add "Lookup Another" button below results/error/info
     results_content += '<div class="text-center mt-5"><a href="/" class="btn btn-secondary">LOOKUP ANOTHER</a></div>'
@@ -408,17 +420,13 @@ def render_results_page(player_name, player_tag, rank_data=None, error=None):
 
 # --- Flask Routes ---
 
-# <<< --- THIS IS THE /riot.txt ROUTE --- >>>
 @app.route('/riot.txt')
 def serve_riot_txt():
     """Serves the hardcoded verification code directly."""
     if not RIOT_VERIFICATION_CODE:
         print("CRITICAL: RIOT_VERIFICATION_CODE is not set in the script!")
-        # Use abort for server errors
         abort(500, description="Verification code not configured on the server.")
-    # Return the code as plain text using Flask Response
     return Response(RIOT_VERIFICATION_CODE, mimetype='text/plain')
-# <<< --- END OF /riot.txt ROUTE --- >>>
 
 
 @app.route('/')
@@ -433,15 +441,12 @@ def lookup():
     username = request.form.get('username', '').strip()
     tag = request.form.get('tag', '').strip()
 
-    # Simple validation
     if not username or not tag:
         flash('Please provide both Riot Username and Tagline.', 'warning')
-        return redirect('/') # Redirect back to the index page
+        return redirect('/')
 
-    # Check if the hardcoded API key looks like the placeholder
     if not RIOT_API_KEY or RIOT_API_KEY == "RGAPI-Your-Actual-Riot-Api-Key-Here":
         print("ERROR: RIOT_API_KEY is not set or is using the placeholder value in app.py.")
-        # Display error on the results page instead of flashing sensitive info
         return render_results_page(
             player_name=username,
             player_tag=tag,
@@ -455,86 +460,92 @@ def lookup():
 
     try:
         headers = {"X-Riot-Token": RIOT_API_KEY}
-        # STEP 1: Get PUUID (Ensure you use the correct region for the account API)
-        account_api_url = f"https://americas.api.riotgames.com/riot/account/v1/accounts/by-riot-id/{username}/{tag}"
-        account_response = requests.get(account_api_url, headers=headers, timeout=10) # 10 second timeout
-        account_response.raise_for_status() # Check for 4xx/5xx errors
+        # STEP 1: Get PUUID (Use appropriate account region)
+        # Common regions: americas, asia, europe, esports
+        account_region = "americas" # <<<--- ADJUST ACCOUNT REGION IF NEEDED
+        account_api_url = f"https://{account_region}.api.riotgames.com/riot/account/v1/accounts/by-riot-id/{username}/{tag}"
+        account_response = requests.get(account_api_url, headers=headers, timeout=10)
+        account_response.raise_for_status()
         account_data = account_response.json()
         puuid = account_data.get('puuid')
 
         if not puuid:
-            raise ValueError("Could not find PUUID for the given Riot ID. Check username/tag.")
+            raise ValueError("Could not find PUUID for the given Riot ID. Check username/tag and account region.")
         print(f"Found PUUID: {puuid}")
 
-        # STEP 2: Get Rank Info (Ensure you use the correct region for the VALORANT API)
+        # STEP 2: Get Rank Info (Use appropriate VALORANT game region)
         # Common regions: na, eu, ap, kr, latam, br
-        valorant_region = "na" # <<<--- ADJUST THIS VALORANT REGION AS NEEDED
+        valorant_region = "na" # <<<--- ADJUST VALORANT REGION AS NEEDED
         rank_api_url = f"https://{valorant_region}.api.riotgames.com/val/ranked/v1/by-puuid/{puuid}"
-        rank_response = requests.get(rank_api_url, headers=headers, timeout=10) # 10 second timeout
+        rank_response = requests.get(rank_api_url, headers=headers, timeout=10)
 
         if rank_response.status_code == 404:
-            # Player found via account API, but no VAL rank data (common for unranked/new players)
             print(f"No VAL ranked data found for PUUID {puuid} (status 404).")
             rank_data = {} # Represent as 'found but unranked'
         elif rank_response.status_code == 200:
             api_result = rank_response.json()
-            print(f"Received rank data: {api_result}") # Log raw data for debugging
+            print(f"Received rank data: {api_result}")
 
             # --- !!! IMPORTANT: PARSE RESPONSE CAREFULLY (CHECK RIOT DOCS) !!! ---
-            # This parsing is HIGHLY DEPENDENT on the exact structure returned by Riot, which can change.
-            # You MUST inspect the actual `api_result` JSON to get the correct keys.
-            # Example parsing (likely needs adjustment):
-            # Find the most relevant competitive update if available
-            comp_updates = api_result.get('QueueData', {}).get('competitive',{}).get('Matches',[])
-            latest_update = comp_updates[0] if comp_updates else {}
+            # This parsing is HIGHLY DEPENDENT on the API version and exact data structure.
+            # Inspect the actual `api_result` JSON from a successful lookup to confirm keys.
+            primary_comp_data = None
+            if isinstance(api_result.get('QueueData'), dict):
+                primary_comp_data = api_result['QueueData'].get('competitive') # Check nested structure
+
+            tier_name = "Unranked"
+            tier_progress = "N/A"
+            wins_count = "N/A"
+            losses_count = "N/A"
+            tier_icon = None
+
+            if primary_comp_data and isinstance(primary_comp_data, dict):
+                 tier_name = primary_comp_data.get('TierName', 'Unranked')
+                 tier_progress = primary_comp_data.get('TierProgress', 'N/A')
+                 wins_count = primary_comp_data.get('Wins', 'N/A')
+                 losses_count = primary_comp_data.get('Losses', 'N/A')
+                 tier_icon = primary_comp_data.get('TierIcon')
 
             rank_data = {
-                 'tier': latest_update.get('TierName', 'Unranked'),  # Example key
-                 'division': '', # Often part of tier name, or maybe 'TierDivision'
-                 'lp': latest_update.get('TierProgress', 'N/A'), # Example key
-                 'wins': api_result.get('Wins', 'N/A'), # Example key (may be overall wins)
-                 'losses': api_result.get('Losses', 'N/A'), # Example key
-                 'rank_icon_url': latest_update.get('TierIcon', None) # Example key
+                 'tier': tier_name,
+                 'division': '', # Often incorporated into TierName, adjust if separate key exists
+                 'lp': tier_progress,
+                 'wins': wins_count,
+                 'losses': losses_count,
+                 'rank_icon_url': tier_icon
             }
             # ---------------------------------------------------------------------
             print(f"Parsed rank data: {rank_data}")
         else:
-            # Handle other non-404 errors from the rank API
-            rank_response.raise_for_status()
+            rank_response.raise_for_status() # Raise HTTPError for other bad statuses
 
-    # --- Error Handling ---
     except requests.exceptions.Timeout:
         print("Error: Request to Riot API timed out.")
-        error_message = "Request to Riot API timed out. The API might be slow or unreachable."
+        error_message = "Request to Riot API timed out. Please try again later."
     except requests.exceptions.HTTPError as e:
         status_code = e.response.status_code
         print(f"Error: Riot API HTTP Error {status_code}")
-        # Provide more user-friendly messages for common errors
-        if status_code == 400: error_message = "Invalid request sent to Riot API (check username/tag format?)."
+        if status_code == 400: error_message = "Invalid request (check username/tag format?)."
         elif status_code == 403: error_message = "Forbidden - Check the Riot API Key permissions or validity."
-        elif status_code == 404: error_message = "Player not found with that Riot ID (check username/tag and account region)."
+        elif status_code == 404: error_message = "Player not found with that Riot ID/Region (check spelling, tag, and regions)."
         elif status_code == 429: error_message = "Rate limit exceeded - Please wait a moment before trying again."
         elif status_code >= 500: error_message = "Riot API is temporarily unavailable (Server Error)."
         else: error_message = f"Riot API Error (Code: {status_code}). Please try again later."
     except requests.exceptions.RequestException as e:
-        # Catch potential network errors (DNS, connection refused, etc.)
-        print(f"Error: Network error connecting to Riot API: {e}")
+        print(f"Error: Network error: {e}")
         error_message = "Network error - Could not connect to Riot API. Check internet connection."
     except ValueError as e:
-         # Catch specific errors raised in the try block (like PUUID not found)
          print(f"Error: Data processing error: {e}")
          error_message = str(e)
     except Exception as e:
-        # Catch any other unexpected errors during the process
-        print(f"CRITICAL: An unexpected error occurred: {e}") # Log the full error
-        error_message = "An unexpected server error occurred during lookup." # Generic message to user
+        print(f"CRITICAL: An unexpected error occurred: {e}")
+        error_message = "An unexpected server error occurred during lookup."
 
-    # --- Render results page HTML string ---
     return render_results_page(
         player_name=username,
         player_tag=tag,
-        rank_data=rank_data, # Will be None on error, {} if unranked, or dict if ranked
-        error=error_message # Will be None if successful
+        rank_data=rank_data,
+        error=error_message
     )
 
 
@@ -551,7 +562,5 @@ if __name__ == '__main__':
     if FLASK_SECRET_KEY == 'a_very_insecure_default_key_for_testing_only_v3':
         print("WARNING: Default insecure FLASK_SECRET_KEY detected.")
 
-    # Use PORT environment variable if available (used by Render/hosting), otherwise default to 5000
     port = int(os.environ.get('PORT', 5000))
-    # debug=False is crucial for Render compatibility and security. Set True ONLY for local debugging.
-    app.run(host='0.0.0.0', port=port, debug=False)
+    app.run(host='0.0.0.0', port=port, debug=False) # Keep debug=False for Render
